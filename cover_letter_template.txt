@@ -1,0 +1,8 @@
+Dear {{ company_name }},
+
+I am writing to express my strong interest in the {{ job_title }} role at {{ company_name }}. With skills in {{ skills }}, I believe I am a great fit for this opportunity.
+
+I have attached my resume for your consideration. I look forward to the opportunity to contribute to your team.
+
+Best regards,  
+Shivani Gaddam
