@@ -2,75 +2,70 @@ import os
 import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
 from dotenv import load_dotenv
-import os
 
-# Load .env from one folder up
-dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
-load_dotenv(dotenv_path)
+# Load credentials
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+EMAIL = os.getenv("INTERNSHALA_EMAIL")
+PASSWORD = os.getenv("INTERNSHALA_PASSWORD")
+RESUME_PATH = os.getenv("RESUME_PATH")
 
+if not EMAIL or not PASSWORD:
+    raise ValueError("Set INTERNSHALA_EMAIL and INTERNSHALA_PASSWORD in your .env")
 
-def login_linkedin(driver, email, password):
-    driver.get("https://www.linkedin.com/login")
-    time.sleep(2)
-    driver.find_element(By.ID, "username").send_keys(email)
-    driver.find_element(By.ID, "password").send_keys(password)
-    driver.find_element(By.ID, "password").send_keys(Keys.RETURN)
+# Setup Chrome
+options = Options()
+options.add_argument("--start-maximized")
+driver = webdriver.Chrome(service=Service(), options=options)
+
+def apply_internshala():
+    driver.get("https://internshala.com/login")
     time.sleep(3)
 
-def fetch_linkedin_jobs(query="python intern", location="remote", max_jobs=5):
-    email = os.getenv("LINKEDIN_EMAIL")
-    password = os.getenv("LINKEDIN_PASSWORD")
+    # Login
+    driver.find_element(By.ID, "email").send_keys(EMAIL)
+    driver.find_element(By.ID, "password").send_keys(PASSWORD)
+    driver.find_element(By.ID, "login_submit").click()
+    time.sleep(5)
 
-    if not email or not password:
-        raise ValueError("Set LINKEDIN_EMAIL and LINKEDIN_PASSWORD in your .env")
+    # Go to internships
+    driver.get("https://internshala.com/internships/keywords-python/")
+    time.sleep(5)
 
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
+    internships = driver.find_elements(By.CLASS_NAME, "individual_internship")[:3]
+    print(f"\n🔍 Found {len(internships)} internships")
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    for index, internship in enumerate(internships, start=1):
+        try:
+            internship.click()
+            time.sleep(3)
 
-    jobs = []
+            driver.switch_to.window(driver.window_handles[1])
 
-    try:
-        login_linkedin(driver, email, password)
+            print(f"\n✅ Applying to internship #{index}: {driver.title}")
 
-        search_url = f"https://www.linkedin.com/jobs/search/?keywords={query}&location={location}&f_TPR=r86400&f_WT=2"
-        driver.get(search_url)
-        time.sleep(5)
+            if "Apply now" in driver.page_source:
+                driver.find_element(By.CLASS_NAME, "btn-primary").click()
+                time.sleep(2)
 
-        job_cards = driver.find_elements(By.CLASS_NAME, "job-card-container")
+                if "submit" in driver.page_source:
+                    driver.find_element(By.CLASS_NAME, "submit").click()
+                    print("🟢 Applied successfully.")
+                else:
+                    print("⚠️ Cannot apply directly or already applied.")
+            else:
+                print("⚠️ No Apply Now button.")
 
-        for card in job_cards[:max_jobs]:
-            try:
-                title = card.find_element(By.CLASS_NAME, "job-card-list__title").text
-                company = card.find_element(By.CLASS_NAME, "job-card-container__company-name").text
-                job_url = card.find_element(By.CLASS_NAME, "job-card-list__title").get_attribute("href")
-                location = card.find_element(By.CLASS_NAME, "job-card-container__metadata-item").text
+            driver.close()
+            driver.switch_to.window(driver.window_handles[0])
+            time.sleep(2)
+        except Exception as e:
+            print(f"❌ Error: {e}")
 
-                jobs.append({
-                    "title": title,
-                    "company": company,
-                    "url": job_url,
-                    "location": location,
-                    "platform": "LinkedIn"
-                })
-
-            except Exception as e:
-                print("Error reading a job card:", e)
-
-        return jobs
-
-    finally:
-        driver.quit()
-print("Scraper started...")
+    driver.quit()
 
 if __name__ == "__main__":
-    print("Running scraper.py")
-
-    # Example call
-    # jobs = scrape_linkedin_jobs("python intern", location="India")
-    # print(jobs)
+    apply_internshala()

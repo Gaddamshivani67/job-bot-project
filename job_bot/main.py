@@ -1,43 +1,59 @@
-import sys
 import os
+from dotenv import load_dotenv
+import smtplib
+from email.message import EmailMessage
 
-# Add parent directory to path for proper imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+load_dotenv()  # Load from .env
 
-import json
-from job_scraper.internshala import fetch_internshala_jobs
-from utils.cover_letter_generator import generate_cover_letter
-from auto_apply.form_filler import auto_apply_to_job
-from auto_apply.tracker import log_application, already_applied
-from utils.email_notifier import send_email_notification
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
+RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
+
+
+def fetch_internshala_jobs():
+    # Dummy job data to simulate real scraping
+    jobs = [
+        {"title": "Data Science Intern", "company": "ABC Corp", "url": "https://internshala.com/job1"},
+        {"title": "Software Intern", "company": "XYZ Ltd", "url": "https://internshala.com/job2"}
+    ]
+    print(f"🔍 Found {len(jobs)} jobs.")
+    return jobs
+
+
+def apply_to_job(job):
+    print(f"Applying to {job['title']} at {job['company']}")
+    print("DEBUG JOB STRUCTURE:", job)
+    # Simulated application logic (e.g., using Selenium or form submission)
+    # You can add actual logic later if needed
+
+
+def send_email_notification(job):
+    subject = f"Applied to {job['title']} at {job['company']}"
+    body = f"You applied to {job['title']} at {job['company']}\nJob URL: {job['url']}"
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = SENDER_EMAIL
+    msg["To"] = RECEIVER_EMAIL
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+            print("✅ Email sent successfully")
+    except Exception as e:
+        print(f"❌ Error sending email: {e}")
+
 
 def main():
     print("🚀 Job bot started...")
-
-    # Fetch jobs (modify query as needed)
-    jobs = fetch_internshala_jobs("python developer")
-    print(f"🔍 Found {len(jobs)} jobs.")
-
-    # Define your skills
-    skills = ["Python", "Data Analysis", "Machine Learning"]
+    jobs = fetch_internshala_jobs()
 
     for job in jobs:
-        if already_applied(job["url"]):
-            print(f"⏩ Already applied to {job['title']}")
-            continue
+        apply_to_job(job)
+        send_email_notification(job)
 
-        print(f"Applying to {job['title']}")
-        
-        # Generate a cover letter
-        cover_letter = generate_cover_letter(job, skills)
-
-        # Try to auto-apply
-        applied = auto_apply_to_job(job, cover_letter)
-        if applied:
-            log_application(job)  # Log this application
-            print("DEBUG JOB STRUCTURE:", job)
-
-            send_email_notification(job)  # Notify via email
 
 if __name__ == "__main__":
     main()
